@@ -29,6 +29,7 @@ class TradeSignal(Base):
     risk_reward = Column(Float)
     strategy_version = Column(String(20))
     indicator_data = Column(String) # JSON string of indicator values
+    trigger_conditions = Column(String) # JSON string of conditions met
     status = Column(Enum(TradeStatusEnum), default=TradeStatusEnum.PENDING)
 
     updates = relationship("TradeUpdate", back_populates="signal")
@@ -81,7 +82,7 @@ class DBManager:
             return self.Session()
         return None
 
-    def add_signal(self, ticker, timeframe, entry, sl, tp, rr, indicators, version):
+    def add_signal(self, ticker, timeframe, entry, sl, tp, rr, indicators, conditions, version):
         session = self.get_session()
         if not session: return None
 
@@ -94,6 +95,7 @@ class DBManager:
                 take_profit=tp,
                 risk_reward=rr,
                 indicator_data=json.dumps(indicators),
+                trigger_conditions=json.dumps(conditions),
                 strategy_version=version,
                 status=TradeStatusEnum.PENDING
             )

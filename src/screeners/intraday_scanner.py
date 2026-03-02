@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
+from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.data.enums import DataFeed, Adjustment
 from datetime import datetime, timedelta
 import pytz
@@ -43,20 +43,13 @@ class IntradayScanner:
             logging.error("Data client not available.")
             return pd.DataFrame()
 
-        # Map timeframe string to Alpaca TimeFrame
-        tf_map = {
-            '1m': TimeFrame.Minute,
-            '5m': (5, TimeFrame.Minute), # Alpaca supports integer multiples
-            '15m': (15, TimeFrame.Minute)
-        }
-
-        # Check if it's a tuple or a direct TimeFrame
+        # Map timeframe string to Alpaca TimeFrame using TimeFrameUnit
         if timeframe_str == '1m':
-            tf = tf_map['1m']
+            tf = TimeFrame.Minute
         elif timeframe_str == '5m':
-            tf = TimeFrame(5, TimeFrame.Minute)
+            tf = TimeFrame(5, TimeFrameUnit.Minute)
         elif timeframe_str == '15m':
-            tf = TimeFrame(15, TimeFrame.Minute)
+            tf = TimeFrame(15, TimeFrameUnit.Minute)
         else:
             tf = TimeFrame.Minute
 

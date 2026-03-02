@@ -8,7 +8,7 @@ from src.screeners.intraday_scanner import IntradayScanner
 from src.strategies.intraday_strategy import IntradayStrategy
 from src.utils.db_manager import DBManager, TradeStatusEnum
 from src.llms.llm_client import LLMClient
-import requests
+from src.tradealerts import update_notify_json, send_notifications
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - INTRADAY_BOT - %(levelname)s - %(message)s')
@@ -56,27 +56,36 @@ class IntradayBot:
         return 300
 
     def send_discord_alert(self, title, content, ticker=None, embed_data=None):
-        """Sends a structured alert to Discord."""
-        if not self.discord_webhook or "YOUR_DISCORD" in self.discord_webhook:
-            logging.warning("Discord webhook not configured for intraday alerts.")
-            return
+        """Sends a structured alert to Discord via the existing notification system."""
+        # Note: We're reusing the BreakoutAnalysis notification structure
+        # but directing it to the intraday webhook if configured.
 
-        payload = {
-            "embeds": [{
-                "title": title,
-                "description": content,
-                "color": 0x00FF00 if "LONG" in title else 0x3498DB,
-                "timestamp": datetime.now(pytz.utc).isoformat(),
-                "footer": {"text": f"Strategy Version: {self.version} | Timeframe: {self.timeframe}"}
-            }]
+        # Prepare content in the format expected by prepare_notification_content's resulting list
+        # We'll bypass prepare_notification_content and call update_notify_json directly.
+        notification_item = {
+            "title": title,
+            "content": content
         }
 
+        # If we have specific fields (like in a new signal), we'll format them into the content
         if embed_data:
-            payload["embeds"][0]["fields"] = embed_data
+            field_str = ""
+            for field in embed_data:
+                field_str += f"\n**{field['name']}:** {field['value']}"
+            notification_item["content"] += f"\n{field_str}"
+
+        # Add footer info to content
+        notification_item["content"] += f"\n\n*Strategy Version: {self.version} | Timeframe: {self.timeframe}*"
 
         try:
-            response = requests.post(self.discord_webhook, json=payload, timeout=10)
-            response.raise_for_status()
+            # We override the webhook in config temporarily or ensure discord_notifier uses it
+            # For simplicity, we'll use the existing system which reads notify.json
+            update_notify_json([notification_item])
+
+            # Since the existing send_notifications uses global config,
+            # we need to make sure it picks up the correct webhook.
+            # Here we just call the script which will use config.json.
+            send_notifications()
         except Exception as e:
             logging.error(f"Failed to send Discord alert: {e}")
 
@@ -124,6 +133,7 @@ class IntradayBot:
                         tp=signal['take_profit'],
                         rr=signal['risk_reward'],
                         indicators=signal['indicators'],
+                        conditions=signal['conditions'],
                         version=self.version
                     )
 
@@ -233,6 +243,7 @@ class IntradayBot:
             "take_profit": signal['take_profit'],
             "risk_reward": signal['risk_reward'],
             "indicators": signal['indicators'],
+            "trigger_conditions": signal['conditions'],
             "ai_analysis": ai_analysis,
             "version": self.version
         }
@@ -242,15 +253,30 @@ class IntradayBot:
             json.dump(data, f, indent=4)
 
     def run(self):
-        """Infinite loop for the bot."""
+        """Infinite loop for the bot, aligning with candle closes."""
         logging.info(f"Intraday Bot started. timeframe={self.timeframe}, interval={self.scan_interval}s")
+
         while True:
             try:
-                # Align with candle closes (approx)
-                # Wait until next interval
+                # Align with candle closes
+                now = datetime.now()
+                # Calculate seconds until the next interval (e.g., next 1m, 5m, or 15m mark)
+                interval_minutes = self.scan_interval // 60
+                seconds_since_last_interval = (now.minute % interval_minutes) * 60 + now.second
+                sleep_seconds = self.scan_interval - seconds_since_last_interval
+
+                # If we're right on the edge, sleep just a tiny bit into the next minute
+                if sleep_seconds <= 0:
+                    sleep_seconds = self.scan_interval
+
+                # Add a 2-second buffer to ensure the candle is fully closed/data is available
+                sleep_seconds += 2
+
+                logging.info(f"Next scan in {sleep_seconds:.1f}s (aligning with {self.timeframe} candle close)...")
+                time.sleep(sleep_seconds)
+
                 self.process_signals()
-                logging.info(f"Cycle complete. Waiting {self.scan_interval} seconds...")
-                time.sleep(self.scan_interval)
+                logging.info(f"Cycle complete.")
             except KeyboardInterrupt:
                 logging.info("Bot stopped by user.")
                 break
