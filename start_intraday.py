@@ -3,10 +3,11 @@ import sys
 import subprocess
 import shutil
 
-def run_command(command):
+def run_command(command, env=None):
     print(f"Running: {command}")
     try:
-        subprocess.check_call(command, shell=True)
+        # Use shell=True for complex commands on Windows, but be careful with paths
+        subprocess.check_call(command, shell=True, env=env)
         return True
     except subprocess.CalledProcessError as e:
         print(f"Error running command: {e}")
@@ -54,29 +55,43 @@ def launch():
     # Set PYTHONPATH to current working directory (project root)
     env = os.environ.copy()
     root_dir = os.getcwd()
-    env["PYTHONPATH"] = root_dir + os.pathsep + env.get("PYTHONPATH", "")
+
+    # Ensure project root is first in PYTHONPATH
+    current_pythonpath = env.get("PYTHONPATH", "")
+    if current_pythonpath:
+        env["PYTHONPATH"] = root_dir + os.pathsep + current_pythonpath
+    else:
+        env["PYTHONPATH"] = root_dir
 
     print(f"DEBUG: Project Root: {root_dir}")
     print(f"DEBUG: Python: {python_exe}")
+    print(f"DEBUG: PYTHONPATH: {env['PYTHONPATH']}")
 
     # Run as a module to handle imports correctly
     try:
-        # Use -m and explicitly set PYTHONPATH
         # We use a list to avoid shell parsing issues on Windows
+        # and explicitly pass the environment
         cmd = [python_exe, "-m", "src.intraday_bot"]
         print(f"DEBUG: Running command: {' '.join(cmd)}")
+
+        # On Windows, we might need to use subprocess.run with shell=False for list commands
         subprocess.run(cmd, env=env, check=True)
     except KeyboardInterrupt:
         print("\n👋 Bot stopped by user.")
     except subprocess.CalledProcessError as e:
         print(f"❌ Error launching bot: {e}")
+        print("\n--- Troubleshooting Import Errors ---")
+        print("1. Ensure you are running this from the project root directory.")
+        print(f"2. Check if {os.path.join(root_dir, 'src', 'llms', 'llm_client.py')} exists.")
+        print("3. Try running: python -m pip install -e .")
     except Exception as e:
         print(f"❌ Unexpected error during launch: {e}")
 
 if __name__ == "__main__":
     # Ensure we are in the root directory
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(base_dir)
+    if base_dir:
+        os.chdir(base_dir)
 
     if not os.path.exists("src") or not os.path.exists("config"):
         print(f"❌ Error: Please run this script from the project root directory. Currently in: {os.getcwd()}")
@@ -89,6 +104,7 @@ if __name__ == "__main__":
             content = f.read()
             if "YOUR_ALPACA_API_KEY" in content:
                 print("\n🛑 SETUP REQUIRED: Please open config/config.json and enter your real API keys.")
+                input("\nPress Enter to close...")
                 sys.exit(0)
 
         try:

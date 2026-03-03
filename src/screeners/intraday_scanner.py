@@ -89,7 +89,11 @@ class IntradayScanner:
         but with more aggressive intraday-friendly filters if needed.
         """
         # For now, reuse the existing market screener to find moving stocks
-        from src.screeners.market_gainers import fetch_screener_data
+        try:
+            from .market_gainers import fetch_screener_data
+        except (ImportError, ValueError):
+            from src.screeners.market_gainers import fetch_screener_data
+
         logging.info("Scanning for candidate tickers using market screener...")
         df = fetch_screener_data(self.config)
 

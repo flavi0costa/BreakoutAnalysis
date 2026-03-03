@@ -6,31 +6,36 @@ import json
 from datetime import datetime, timedelta
 import pytz
 
-# --- Add project root to sys.path ---
-# We use a robust way to find the project root regardless of how the script is called
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# Use relative imports when running as a module
+try:
+    from .screeners.intraday_scanner import IntradayScanner
+    from .strategies.intraday_strategy import IntradayStrategy
+    from .utils.db_manager import DBManager, TradeStatusEnum
+    from .llms.llm_client import LLMClient
+except (ImportError, ValueError):
+    # Fallback to absolute imports if not running as a module
+    from src.screeners.intraday_scanner import IntradayScanner
+    from src.strategies.intraday_strategy import IntradayStrategy
+    from src.utils.db_manager import DBManager, TradeStatusEnum
+    from src.llms.llm_client import LLMClient
 
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# If 'src' directory itself is in sys.path, remove it to avoid ambiguous imports
-src_dir = os.path.join(project_root, 'src')
-while src_dir in sys.path:
-    sys.path.remove(src_dir)
-# --- End of path addition ---
-
-from src.screeners.intraday_scanner import IntradayScanner
-from src.strategies.intraday_strategy import IntradayStrategy
-from src.utils.db_manager import DBManager, TradeStatusEnum
-from src.llms.llm_client import LLMClient
-from src.tradealerts import update_notify_json, send_notifications
+# tradealerts is in the same directory as intraday_bot, but not a package member
+try:
+    from .tradealerts import update_notify_json, send_notifications
+except (ImportError, ValueError):
+    try:
+        from tradealerts import update_notify_json, send_notifications
+    except ImportError:
+        from src.tradealerts import update_notify_json, send_notifications
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - INTRADAY_BOT - %(levelname)s - %(message)s')
 
 class IntradayBot:
     def __init__(self, config_path='config/config.json'):
-        self.project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        # Determine project root: parent of the 'src' directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.project_root = os.path.abspath(os.path.join(script_dir, ".."))
         self.config_path = os.path.join(self.project_root, config_path)
         self.config = self._load_config()
 

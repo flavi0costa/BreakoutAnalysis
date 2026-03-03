@@ -5,12 +5,19 @@ from typing import Dict, Optional, Type # Remove List
 # Remove DDGS import
 
 # Dynamically import available model classes
-# Add new model classes here as they are implemented
-from .models.basemodel import BaseModel
-from .models.deepseek_r1 import DeepSeekR1Model
-from .models.llama3_2_vision import Llama3_2VisionModel
-from .models.gpt_unified import GPTUnified
-from .models.gemini import GeminiModel
+# Use try-except to support both module and direct execution if needed
+try:
+    from .models.basemodel import BaseModel
+    from .models.deepseek_r1 import DeepSeekR1Model
+    from .models.llama3_2_vision import Llama3_2VisionModel
+    from .models.gpt_unified import GPTUnified
+    from .models.gemini import GeminiModel
+except (ImportError, ValueError):
+    from src.llms.models.basemodel import BaseModel
+    from src.llms.models.deepseek_r1 import DeepSeekR1Model
+    from src.llms.models.llama3_2_vision import Llama3_2VisionModel
+    from src.llms.models.gpt_unified import GPTUnified
+    from src.llms.models.gemini import GeminiModel
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
