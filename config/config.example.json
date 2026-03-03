@@ -113,5 +113,24 @@
                 "Accept-Language": "en-US,en;q=0.5"
             }
         }
+    },
+    "intraday": {
+        "enabled": true,
+        "timeframe": "5m",
+        "strategy_version": "1.0.0",
+        "database_url": "postgresql://user:password@localhost/trading_db",
+        "filters": {
+            "rsi_min": 55,
+            "rsi_max": 70,
+            "volume_multiplier": 1.5,
+            "volume_period": 20,
+            "ema_fast": 9,
+            "ema_slow": 20,
+            "risk_reward_ratio": 2.0,
+            "atr_period": 14
+        },
+        "discord": {
+            "webhook_url": "YOUR_DISCORD_INTRADAY_WEBHOOK_URL"
+        }
     }
 }
