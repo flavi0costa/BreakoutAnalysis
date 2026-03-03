@@ -51,14 +51,9 @@ def launch():
     print("\n--- 🏁 Launching Intraday Bot ---")
     python_exe = sys.executable
 
-    # Set PYTHONPATH to project root
-    env = os.environ.copy()
-    env["PYTHONPATH"] = os.getcwd() + os.pathsep + env.get("PYTHONPATH", "")
-
-    bot_path = os.path.join("src", "intraday_bot.py")
-
+    # Run as a module to handle imports correctly
     try:
-        subprocess.run([python_exe, bot_path], env=env, check=True)
+        subprocess.run([python_exe, "-m", "src.intraday_bot"], check=True)
     except KeyboardInterrupt:
         print("\n👋 Bot stopped by user.")
     except Exception as e:
