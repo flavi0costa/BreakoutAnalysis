@@ -62,7 +62,10 @@ def launch():
     # Run as a module to handle imports correctly
     try:
         # Use -m and explicitly set PYTHONPATH
-        subprocess.run([python_exe, "-m", "src.intraday_bot"], env=env, check=True)
+        # We use a list to avoid shell parsing issues on Windows
+        cmd = [python_exe, "-m", "src.intraday_bot"]
+        print(f"DEBUG: Running command: {' '.join(cmd)}")
+        subprocess.run(cmd, env=env, check=True)
     except KeyboardInterrupt:
         print("\n👋 Bot stopped by user.")
     except subprocess.CalledProcessError as e:

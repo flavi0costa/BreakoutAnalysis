@@ -7,7 +7,14 @@ from datetime import datetime, timedelta
 import pytz
 
 # --- Add project root to sys.path ---
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, ".."))
+
+# Remove script_dir from path to avoid shadowing the 'src' package
+# If 'src' is in sys.path, 'import src.llms' will look for 'src/src/llms'
+while script_dir in sys.path:
+    sys.path.remove(script_dir)
+
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 # --- End of path addition ---
