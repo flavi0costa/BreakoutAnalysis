@@ -1,12 +1,24 @@
 import logging
 import pandas as pd
+import sys
+import os
+
+# --- ULTRA-ROBUST PATH INJECTION ---
+def _setup_paths():
+    current_file = os.path.abspath(__file__)
+    current_dir = os.path.dirname(current_file)
+    project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+_setup_paths()
+# ----------------------------------
+
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.data.enums import DataFeed, Adjustment
 from datetime import datetime, timedelta
 import pytz
-import os
 import json
 
 class IntradayScanner:
@@ -53,9 +65,6 @@ class IntradayScanner:
         else:
             tf = TimeFrame.Minute
 
-        # Calculate start time based on candles and timeframe
-        # Approx: 100 * 5m = 500m ~ 8.3h.
-        # Better to just look back 1-2 days to ensure we have enough during market hours.
         eastern = pytz.timezone('US/Eastern')
         now = datetime.now(eastern)
         start = now - timedelta(days=2) # Safe margin
@@ -73,7 +82,6 @@ class IntradayScanner:
 
             if ticker in bars.df.index.get_level_values('symbol').unique():
                 df = bars.df.loc[ticker].copy()
-                # Ensure it's sorted by time
                 df = df.sort_index()
                 return df
             else:
@@ -85,14 +93,9 @@ class IntradayScanner:
 
     def get_candidate_tickers(self):
         """
-        Identify active candidate tickers using the existing market_gainers screener logic,
-        but with more aggressive intraday-friendly filters if needed.
+        Identify active candidate tickers using the existing market_gainers screener logic.
         """
-        # For now, reuse the existing market screener to find moving stocks
-        try:
-            from .market_gainers import fetch_screener_data
-        except (ImportError, ValueError):
-            from src.screeners.market_gainers import fetch_screener_data
+        from src.screeners.market_gainers import fetch_screener_data
 
         logging.info("Scanning for candidate tickers using market screener...")
         df = fetch_screener_data(self.config)

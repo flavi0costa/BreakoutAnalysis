@@ -6,27 +6,29 @@ import json
 from datetime import datetime, timedelta
 import pytz
 
-# Use relative imports when running as a module
-try:
-    from .screeners.intraday_scanner import IntradayScanner
-    from .strategies.intraday_strategy import IntradayStrategy
-    from .utils.db_manager import DBManager, TradeStatusEnum
-    from .llms.llm_client import LLMClient
-except (ImportError, ValueError):
-    # Fallback to absolute imports if not running as a module
-    from src.screeners.intraday_scanner import IntradayScanner
-    from src.strategies.intraday_strategy import IntradayStrategy
-    from src.utils.db_manager import DBManager, TradeStatusEnum
-    from src.llms.llm_client import LLMClient
+# --- ULTRA-ROBUST PATH INJECTION ---
+# This ensures that 'src' is always discoverable regardless of how the script is called.
+def _setup_paths():
+    current_file = os.path.abspath(__file__)
+    current_dir = os.path.dirname(current_file)
+    project_root = os.path.abspath(os.path.join(current_dir, ".."))
 
-# tradealerts is in the same directory as intraday_bot, but not a package member
-try:
-    from .tradealerts import update_notify_json, send_notifications
-except (ImportError, ValueError):
-    try:
-        from tradealerts import update_notify_json, send_notifications
-    except ImportError:
-        from src.tradealerts import update_notify_json, send_notifications
+    # Add project root to sys.path if not already there
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    # Remove the 'src' directory itself from sys.path to avoid shadowed imports
+    if current_dir in sys.path:
+        sys.path.remove(current_dir)
+
+_setup_paths()
+# ----------------------------------
+
+from src.screeners.intraday_scanner import IntradayScanner
+from src.strategies.intraday_strategy import IntradayStrategy
+from src.utils.db_manager import DBManager, TradeStatusEnum
+from src.llms.llm_client import LLMClient
+from src.tradealerts import update_notify_json, send_notifications, parse_llm_analysis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - INTRADAY_BOT - %(levelname)s - %(message)s')
@@ -77,34 +79,21 @@ class IntradayBot:
 
     def send_discord_alert(self, title, content, ticker=None, embed_data=None):
         """Sends a structured alert to Discord via the existing notification system."""
-        # Note: We're reusing the BreakoutAnalysis notification structure
-        # but directing it to the intraday webhook if configured.
-
-        # Prepare content in the format expected by prepare_notification_content's resulting list
-        # We'll bypass prepare_notification_content and call update_notify_json directly.
         notification_item = {
             "title": title,
             "content": content
         }
 
-        # If we have specific fields (like in a new signal), we'll format them into the content
         if embed_data:
             field_str = ""
             for field in embed_data:
                 field_str += f"\n**{field['name']}:** {field['value']}"
             notification_item["content"] += f"\n{field_str}"
 
-        # Add footer info to content
         notification_item["content"] += f"\n\n*Strategy Version: {self.version} | Timeframe: {self.timeframe}*"
 
         try:
-            # We override the webhook in config temporarily or ensure discord_notifier uses it
-            # For simplicity, we'll use the existing system which reads notify.json
             update_notify_json([notification_item])
-
-            # Since the existing send_notifications uses global config,
-            # we need to make sure it picks up the correct webhook.
-            # Here we just call the script which will use config.json.
             send_notifications()
         except Exception as e:
             logging.error(f"Failed to send Discord alert: {e}")
@@ -117,20 +106,15 @@ class IntradayBot:
 
         logging.info(f"Starting intraday scan cycle for timeframe: {self.timeframe}")
 
-        # 1. Get candidate tickers
         tickers = self.scanner.get_candidate_tickers()
         if not tickers:
             logging.info("No candidate tickers found by screener.")
             return
 
-        # 2. Monitor existing trades
         self.monitor_active_trades()
 
-        # 3. Scan for new signals
         for ticker in tickers:
             try:
-                # Check if we already have an active signal for this ticker
-                # (Pending or Triggered)
                 active_signals = self.db.get_active_signals()
                 if any(s.ticker == ticker for s in active_signals):
                     continue
@@ -144,7 +128,6 @@ class IntradayBot:
                 if signal:
                     logging.info(f"NEW SIGNAL FOUND: {ticker}")
 
-                    # Store in DB
                     signal_id = self.db.add_signal(
                         ticker=ticker,
                         timeframe=self.timeframe,
@@ -157,11 +140,9 @@ class IntradayBot:
                         version=self.version
                     )
 
-                    # AI Analysis (Optional)
                     ai_analysis = "N/A"
                     if self.llm_client:
                         try:
-                            # Pass indicators and signal info for AI analysis
                             llm_input = {
                                 "ticker": ticker,
                                 "timeframe": self.timeframe,
@@ -170,15 +151,12 @@ class IntradayBot:
                                 "conditions": signal['conditions']
                             }
                             raw_analysis = self.llm_client.analyze_stock(llm_input)
-                            from src.tradealerts import parse_llm_analysis
                             ai_analysis = parse_llm_analysis(raw_analysis)
                         except Exception as e:
                             logging.error(f"LLM Analysis failed for {ticker}: {e}")
 
-                    # Store in JSON (automation readiness)
                     self.save_signal_to_json(ticker, signal, signal_id, ai_analysis)
 
-                    # Prepare Discord Alert
                     fields = [
                         {"name": "Ticker", "value": ticker, "inline": True},
                         {"name": "Entry", "value": f"{signal['entry']:.2f}", "inline": True},
@@ -209,13 +187,11 @@ class IntradayBot:
 
         for signal in active_signals:
             try:
-                # Use Alpaca quote for real-time monitoring
                 curr_price = self.alpaca.get_current_price(signal.ticker)
                 if curr_price is None:
                     continue
 
                 if signal.status == TradeStatusEnum.PENDING:
-                    # Check if entry triggered
                     if curr_price >= signal.entry_price:
                         self.db.update_status(signal.id, TradeStatusEnum.TRIGGERED, f"Price {curr_price} hit entry {signal.entry_price}")
                         self.send_discord_alert(
@@ -224,14 +200,12 @@ class IntradayBot:
                         )
 
                 elif signal.status == TradeStatusEnum.TRIGGERED:
-                    # Check SL
                     if curr_price <= signal.stop_loss:
                         self.db.update_status(signal.id, TradeStatusEnum.STOP_LOSS, f"Price {curr_price} hit SL {signal.stop_loss}")
                         self.send_discord_alert(
                             title=f"🛑 Stop-Loss Hit: {signal.ticker}",
                             content=f"The trade for {signal.ticker} was closed at stop-loss level {signal.stop_loss:.2f} (Current: {curr_price:.2f})."
                         )
-                    # Check TP
                     elif curr_price >= signal.take_profit:
                         self.db.update_status(signal.id, TradeStatusEnum.TAKE_PROFIT, f"Price {curr_price} hit TP {signal.take_profit}")
                         self.send_discord_alert(
@@ -278,18 +252,14 @@ class IntradayBot:
 
         while True:
             try:
-                # Align with candle closes
                 now = datetime.now()
-                # Calculate seconds until the next interval (e.g., next 1m, 5m, or 15m mark)
                 interval_minutes = self.scan_interval // 60
                 seconds_since_last_interval = (now.minute % interval_minutes) * 60 + now.second
                 sleep_seconds = self.scan_interval - seconds_since_last_interval
 
-                # If we're right on the edge, sleep just a tiny bit into the next minute
                 if sleep_seconds <= 0:
                     sleep_seconds = self.scan_interval
 
-                # Add a 2-second buffer to ensure the candle is fully closed/data is available
                 sleep_seconds += 2
 
                 logging.info(f"Next scan in {sleep_seconds:.1f}s (aligning with {self.timeframe} candle close)...")

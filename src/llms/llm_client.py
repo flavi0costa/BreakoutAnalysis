@@ -1,23 +1,24 @@
 import json
 import os
+import sys
 import logging
-from typing import Dict, Optional, Type # Remove List
-# Remove DDGS import
+from typing import Dict, Optional, Type
 
-# Dynamically import available model classes
-# Use try-except to support both module and direct execution if needed
-try:
-    from .models.basemodel import BaseModel
-    from .models.deepseek_r1 import DeepSeekR1Model
-    from .models.llama3_2_vision import Llama3_2VisionModel
-    from .models.gpt_unified import GPTUnified
-    from .models.gemini import GeminiModel
-except (ImportError, ValueError):
-    from src.llms.models.basemodel import BaseModel
-    from src.llms.models.deepseek_r1 import DeepSeekR1Model
-    from src.llms.models.llama3_2_vision import Llama3_2VisionModel
-    from src.llms.models.gpt_unified import GPTUnified
-    from src.llms.models.gemini import GeminiModel
+# --- ULTRA-ROBUST PATH INJECTION ---
+def _setup_paths():
+    current_file = os.path.abspath(__file__)
+    current_dir = os.path.dirname(current_file)
+    project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+_setup_paths()
+# ----------------------------------
+
+from src.llms.models.basemodel import BaseModel
+from src.llms.models.deepseek_r1 import DeepSeekR1Model
+from src.llms.models.llama3_2_vision import Llama3_2VisionModel
+from src.llms.models.gpt_unified import GPTUnified
+from src.llms.models.gemini import GeminiModel
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
