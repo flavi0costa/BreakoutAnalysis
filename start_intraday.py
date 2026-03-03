@@ -41,16 +41,19 @@ def launch():
     print("\n--- 🏁 Launching Intraday Bot ---")
     python_exe = sys.executable
     root_dir = os.getcwd()
+
+    # Set PYTHONPATH to project root so 'import src.xxx' works
     env = os.environ.copy()
     env["PYTHONPATH"] = root_dir + os.pathsep + env.get("PYTHONPATH", "")
-
-    # We try both direct execution and module-style for maximum compatibility
-    bot_script = os.path.join("src", "intraday_bot.py")
 
     try:
         print(f"DEBUG: Project Root: {root_dir}")
         print(f"DEBUG: PYTHONPATH: {env['PYTHONPATH']}")
-        subprocess.run([python_exe, bot_script], env=env, check=True)
+
+        # Use module flag -m to run correctly within package
+        cmd = [python_exe, "-m", "src.intraday_bot"]
+        print(f"DEBUG: Command: {' '.join(cmd)}")
+        subprocess.run(cmd, env=env, check=True)
     except KeyboardInterrupt:
         print("\n👋 Bot stopped by user.")
     except Exception as e:

@@ -3,15 +3,6 @@ import pandas as pd
 import sys
 import os
 
-# --- ULTRA-ROBUST PATH INJECTION ---
-def _setup_paths():
-    current_file = os.path.abspath(__file__)
-    current_dir = os.path.dirname(current_file)
-    project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-_setup_paths()
-# ----------------------------------
 
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest

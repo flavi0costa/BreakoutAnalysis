@@ -4,15 +4,6 @@ import sys
 import logging
 from typing import Dict, Optional, Type
 
-# --- ULTRA-ROBUST PATH INJECTION ---
-def _setup_paths():
-    current_file = os.path.abspath(__file__)
-    current_dir = os.path.dirname(current_file)
-    project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-_setup_paths()
-# ----------------------------------
 
 from src.llms.models.basemodel import BaseModel
 from src.llms.models.deepseek_r1 import DeepSeekR1Model

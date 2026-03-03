@@ -6,24 +6,6 @@ import json
 from datetime import datetime, timedelta
 import pytz
 
-# --- ULTRA-ROBUST PATH INJECTION ---
-# This ensures that 'src' is always discoverable regardless of how the script is called.
-def _setup_paths():
-    current_file = os.path.abspath(__file__)
-    current_dir = os.path.dirname(current_file)
-    project_root = os.path.abspath(os.path.join(current_dir, ".."))
-
-    # Add project root to sys.path if not already there
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-
-    # Remove the 'src' directory itself from sys.path to avoid shadowed imports
-    if current_dir in sys.path:
-        sys.path.remove(current_dir)
-
-_setup_paths()
-# ----------------------------------
-
 from src.screeners.intraday_scanner import IntradayScanner
 from src.strategies.intraday_strategy import IntradayStrategy
 from src.utils.db_manager import DBManager, TradeStatusEnum
