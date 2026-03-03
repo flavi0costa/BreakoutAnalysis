@@ -51,27 +51,36 @@ def launch():
     print("\n--- 🏁 Launching Intraday Bot ---")
     python_exe = sys.executable
 
+    # Set PYTHONPATH to current working directory (project root)
+    env = os.environ.copy()
+    root_dir = os.getcwd()
+    env["PYTHONPATH"] = root_dir + os.pathsep + env.get("PYTHONPATH", "")
+
+    print(f"DEBUG: Project Root: {root_dir}")
+    print(f"DEBUG: Python: {python_exe}")
+
     # Run as a module to handle imports correctly
     try:
-        subprocess.run([python_exe, "-m", "src.intraday_bot"], check=True)
+        # Use -m and explicitly set PYTHONPATH
+        subprocess.run([python_exe, "-m", "src.intraday_bot"], env=env, check=True)
     except KeyboardInterrupt:
         print("\n👋 Bot stopped by user.")
-    except Exception as e:
+    except subprocess.CalledProcessError as e:
         print(f"❌ Error launching bot: {e}")
+    except Exception as e:
+        print(f"❌ Unexpected error during launch: {e}")
 
 if __name__ == "__main__":
     # Ensure we are in the root directory
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(base_dir)
+
     if not os.path.exists("src") or not os.path.exists("config"):
-        print("❌ Error: Please run this script from the project root directory.")
+        print(f"❌ Error: Please run this script from the project root directory. Currently in: {os.getcwd()}")
         sys.exit(1)
 
-    # Set current directory to root just in case
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
     if setup():
-        # Check if user wants to run now
-        # For an auto-script, we can just try to run it.
-        # But if we just created the config, they might need to edit it first.
+        # Check if user needs to fill config
         config_path = os.path.join("config", "config.json")
         with open(config_path, 'r') as f:
             content = f.read()
@@ -83,4 +92,5 @@ if __name__ == "__main__":
             launch()
         except Exception as e:
             print(f"❌ Critical error: {e}")
-            input("Press Enter to close...")
+
+        input("\nPress Enter to close...")
