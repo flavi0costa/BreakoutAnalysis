@@ -7,16 +7,16 @@ from datetime import datetime, timedelta
 import pytz
 
 # --- Add project root to sys.path ---
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(script_dir, ".."))
-
-# Remove script_dir from path to avoid shadowing the 'src' package
-# If 'src' is in sys.path, 'import src.llms' will look for 'src/src/llms'
-while script_dir in sys.path:
-    sys.path.remove(script_dir)
+# We use a robust way to find the project root regardless of how the script is called
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+# If 'src' directory itself is in sys.path, remove it to avoid ambiguous imports
+src_dir = os.path.join(project_root, 'src')
+while src_dir in sys.path:
+    sys.path.remove(src_dir)
 # --- End of path addition ---
 
 from src.screeners.intraday_scanner import IntradayScanner
