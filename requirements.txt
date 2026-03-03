@@ -11,7 +11,7 @@ psycopg2-binary>=2.9.0
 alpaca-py>=0.39.0
 
 # Technical Analysis & Screening
-pandas-ta>=0.4.7
+pandas-ta>=0.3.14b0
 tradingview-screener>=3.0.0
 
 # AI & News Integration

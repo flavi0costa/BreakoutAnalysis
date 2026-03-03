@@ -70,6 +70,9 @@ if __name__ == "__main__":
         print("❌ Error: Please run this script from the project root directory.")
         sys.exit(1)
 
+    # Set current directory to root just in case
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
     if setup():
         # Check if user wants to run now
         # For an auto-script, we can just try to run it.
@@ -81,4 +84,8 @@ if __name__ == "__main__":
                 print("\n🛑 SETUP REQUIRED: Please open config/config.json and enter your real API keys.")
                 sys.exit(0)
 
-        launch()
+        try:
+            launch()
+        except Exception as e:
+            print(f"❌ Critical error: {e}")
+            input("Press Enter to close...")
