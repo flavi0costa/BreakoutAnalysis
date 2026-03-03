@@ -1,9 +1,17 @@
 import logging
 import time
 import os
+import sys
 import json
 from datetime import datetime, timedelta
 import pytz
+
+# --- Add project root to sys.path ---
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+# --- End of path addition ---
+
 from src.screeners.intraday_scanner import IntradayScanner
 from src.strategies.intraday_strategy import IntradayStrategy
 from src.utils.db_manager import DBManager, TradeStatusEnum

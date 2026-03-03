@@ -43,7 +43,14 @@ Ensure the `intraday` section is correctly populated:
 
 ## 3. Installation
 
+Run these commands from the **project root** directory:
+
 ```bash
+# Windows
+python -m pip install -r requirements.txt
+python -m playwright install chromium
+
+# macOS / Linux
 pip install -r requirements.txt
 playwright install chromium
 ```
@@ -52,9 +59,13 @@ playwright install chromium
 
 ## 4. Running the Bot
 
-To start the intraday trading analysis bot:
+Always run the bot from the **project root** directory:
 
 ```bash
+# Windows
+python src/intraday_bot.py
+
+# macOS / Linux
 export PYTHONPATH=$PYTHONPATH:.
 python src/intraday_bot.py
 ```
