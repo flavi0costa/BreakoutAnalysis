@@ -4,13 +4,13 @@ import sys
 import logging
 from typing import Dict, Optional, Type
 
-# Use relative imports for sibling packages/modules
+# Standard absolute imports for EXTERNAL libraries
+# Relative imports for package-internal modules
 from .models import BaseModel, DeepSeekR1Model, Llama3_2VisionModel, GPTUnified, GeminiModel
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Map model names (from config.json) to their corresponding classes
 MODEL_CLASS_MAP: Dict[str, Type[BaseModel]] = {
     "deepseek-r1-distill-qwen-7b": DeepSeekR1Model,
     "llama-3.2-vision": Llama3_2VisionModel,
@@ -26,7 +26,6 @@ MODEL_CLASS_MAP: Dict[str, Type[BaseModel]] = {
 
 class LLMClient:
     def __init__(self, config_path: str = 'config/config.json'):
-        # Ensure project root is available for path resolution
         self.script_dir = os.path.dirname(os.path.abspath(__file__)) # src/llms
         self.project_root = os.path.abspath(os.path.join(self.script_dir, "..", ".."))
         self.config_path = os.path.join(self.project_root, config_path)

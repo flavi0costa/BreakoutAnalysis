@@ -6,25 +6,21 @@ import json
 from datetime import datetime, timedelta
 import pytz
 
-# Inject project root into sys.path to allow 'from src.xxx' imports
-# works regardless of how the script is called.
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# Standard absolute imports
-from src.screeners.intraday_scanner import IntradayScanner
-from src.strategies.intraday_strategy import IntradayStrategy
-from src.utils.db_manager import DBManager, TradeStatusEnum
-from src.llms.llm_client import LLMClient
-from src.tradealerts import update_notify_json, send_notifications, parse_llm_analysis
+# Relative imports for package-internal modules
+from .screeners.intraday_scanner import IntradayScanner
+from .strategies.intraday_strategy import IntradayStrategy
+from .utils.db_manager import DBManager, TradeStatusEnum
+from .llms.llm_client import LLMClient
+from .tradealerts import update_notify_json, send_notifications, parse_llm_analysis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - INTRADAY_BOT - %(levelname)s - %(message)s')
 
 class IntradayBot:
     def __init__(self, config_path='config/config.json'):
-        self.project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        # Root is the parent of the directory containing this script's package
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.project_root = os.path.abspath(os.path.join(script_dir, ".."))
         self.config_path = os.path.join(self.project_root, config_path)
         self.config = self._load_config()
 
@@ -34,7 +30,7 @@ class IntradayBot:
         self.version = self.intraday_config.get('strategy_version', '1.0.0')
 
         self.scanner = IntradayScanner(config_path=config_path)
-        from src.utils.alpaca_client import AlpacaClient
+        from .utils.alpaca_client import AlpacaClient
         self.alpaca = AlpacaClient(config_path=config_path)
         self.strategy = IntradayStrategy(self.config)
         self.db = DBManager(config_path=config_path)

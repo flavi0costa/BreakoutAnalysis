@@ -41,13 +41,11 @@ def launch():
     root_dir = os.getcwd()
     env = os.environ.copy()
 
-    # Critical: Use -m to run as a module so that sibling/parent imports work correctly.
-    # We must ensure the project root is in PYTHONPATH.
+    # Critical: Use -m src.intraday_bot to respect the package structure.
+    # Relative imports only work if the script is run as a module.
     env["PYTHONPATH"] = root_dir + os.pathsep + env.get("PYTHONPATH", "")
 
     try:
-        # Launch using the module flag -m. This is the only way to run code
-        # that uses relative imports within its own package hierarchy.
         cmd = [python_exe, "-m", "src.intraday_bot"]
         print(f"DEBUG: Command: {' '.join(cmd)}")
         subprocess.run(cmd, env=env, check=True)
@@ -57,9 +55,11 @@ def launch():
         print(f"❌ Error launching bot: {e}")
 
 if __name__ == "__main__":
+    # Force working directory to project root
     base_dir = os.path.dirname(os.path.abspath(__file__))
     if base_dir:
         os.chdir(base_dir)
+
     if setup():
         config_path = os.path.join("config", "config.json")
         with open(config_path, 'r') as f:
