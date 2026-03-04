@@ -3,9 +3,8 @@ import pandas as pd
 import sys
 import os
 
-# Relative imports
-from ..utils.alpaca_client import AlpacaClient # Note: This might cause issues if scanner is used standalone, but required for module-style
-# Actually, better to keep external libraries absolute and internal sibling/parent relative.
+# Use absolute imports from 'src'
+from src.utils.alpaca_client import AlpacaClient
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
@@ -64,8 +63,8 @@ class IntradayScanner:
         return pd.DataFrame()
 
     def get_candidate_tickers(self):
-        # Relative import for sibling
-        from .market_gainers import fetch_screener_data
+        # Use absolute import
+        from src.screeners.market_gainers import fetch_screener_data
         logging.info("Scanning for candidate tickers...")
         df = fetch_screener_data(self.config)
         if df is not None and not df.empty:

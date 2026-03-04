@@ -6,21 +6,31 @@ import json
 from datetime import datetime, timedelta
 import pytz
 
-# Relative imports for package-internal modules
-from .screeners.intraday_scanner import IntradayScanner
-from .strategies.intraday_strategy import IntradayStrategy
-from .utils.db_manager import DBManager, TradeStatusEnum
-from .llms.llm_client import LLMClient
-from .tradealerts import update_notify_json, send_notifications, parse_llm_analysis
+# --- DEFENSIVE PATH INJECTION ---
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, ".."))
+
+# Remove script_dir from path if it's there to avoid shadowing the 'src' package
+while script_dir in sys.path:
+    sys.path.remove(script_dir)
+
+# Add project root to the START of sys.path
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+# --------------------------------
+
+from src.screeners.intraday_scanner import IntradayScanner
+from src.strategies.intraday_strategy import IntradayStrategy
+from src.utils.db_manager import DBManager, TradeStatusEnum
+from src.llms.llm_client import LLMClient
+from src.tradealerts import update_notify_json, send_notifications, parse_llm_analysis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - INTRADAY_BOT - %(levelname)s - %(message)s')
 
 class IntradayBot:
     def __init__(self, config_path='config/config.json'):
-        # Root is the parent of the directory containing this script's package
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.project_root = os.path.abspath(os.path.join(script_dir, ".."))
+        self.project_root = project_root
         self.config_path = os.path.join(self.project_root, config_path)
         self.config = self._load_config()
 
@@ -30,7 +40,7 @@ class IntradayBot:
         self.version = self.intraday_config.get('strategy_version', '1.0.0')
 
         self.scanner = IntradayScanner(config_path=config_path)
-        from .utils.alpaca_client import AlpacaClient
+        from src.utils.alpaca_client import AlpacaClient
         self.alpaca = AlpacaClient(config_path=config_path)
         self.strategy = IntradayStrategy(self.config)
         self.db = DBManager(config_path=config_path)
@@ -91,7 +101,8 @@ class IntradayBot:
                     ai_analysis = "N/A"
                     if self.llm_client:
                         try:
-                            llm_input = {"ticker": ticker, "timeframe": self.timeframe, "price": signal['entry'], "indicators": signal['indicators'], "conditions": signal['conditions']}
+                            # Use Ticker instead of ticker to match prompt requirements in some models
+                            llm_input = {"Ticker": ticker, "timeframe": self.timeframe, "price": signal['entry'], "indicators": signal['indicators'], "conditions": signal['conditions']}
                             raw_analysis = self.llm_client.analyze_stock(llm_input)
                             ai_analysis = parse_llm_analysis(raw_analysis)
                         except Exception as e:
@@ -115,11 +126,11 @@ class IntradayBot:
                 if signal.status == TradeStatusEnum.PENDING:
                     if curr_price >= signal.entry_price:
                         self.db.update_status(signal.id, TradeStatusEnum.TRIGGERED, f"Price {curr_price} hit entry")
-                        self.send_discord_alert(f"🎯 Trade Triggered: {signal.ticker}", f"The long signal for {signal.ticker} has been triggered at {curr_price:.2f}.")
+                        self.send_discord_alert(f"🎯 Trade Triggered: {signal.ticker}", f"The long signal for {signal.ticker} has been triggered at {curr_price:.2f} (Entry: {signal.entry_price:.2f}).")
                 elif signal.status == TradeStatusEnum.TRIGGERED:
                     if curr_price <= signal.stop_loss:
                         self.db.update_status(signal.id, TradeStatusEnum.STOP_LOSS, f"Price {curr_price} hit SL")
-                        self.send_discord_alert(f"🛑 Stop-Loss Hit: {signal.ticker}", f"The trade for {signal.ticker} was closed at stop-loss level {signal.stop_loss:.2f}.")
+                        self.send_discord_alert(f"🛑 Stop-Loss Hit: {signal.ticker}", f"The trade for {signal.ticker} was closed at stop-loss level {signal.stop_loss:.2f} (Current: {curr_price:.2f}).")
                     elif curr_price >= signal.take_profit:
                         self.db.update_status(signal.id, TradeStatusEnum.TAKE_PROFIT, f"Price {curr_price} hit TP")
                         self.send_discord_alert(f"💰 Take-Profit Hit: {signal.ticker}", f"The trade for {signal.ticker} reached its take-profit target of {signal.take_profit:.2f}! 🚀")
