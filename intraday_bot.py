@@ -6,25 +6,35 @@ import json
 from datetime import datetime, timedelta
 import pytz
 
-# Inject project root into sys.path to allow 'from src.xxx' imports
-# works regardless of how the script is called.
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# Use relative imports for package-internal modules
+# This is the most robust way when running with 'python -m src.intraday_bot'
+try:
+    from .screeners.intraday_scanner import IntradayScanner
+    from .strategies.intraday_strategy import IntradayStrategy
+    from .utils.db_manager import DBManager, TradeStatusEnum
+    from .llms.llm_client import LLMClient
+    from .tradealerts import update_notify_json, send_notifications, parse_llm_analysis
+except (ImportError, ValueError) as e:
+    # Fallback for unconventional launch methods or direct execution
+    # Inject project root to sys.path
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, ".."))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
 
-# Standard absolute imports
-from src.screeners.intraday_scanner import IntradayScanner
-from src.strategies.intraday_strategy import IntradayStrategy
-from src.utils.db_manager import DBManager, TradeStatusEnum
-from src.llms.llm_client import LLMClient
-from src.tradealerts import update_notify_json, send_notifications, parse_llm_analysis
+    from src.screeners.intraday_scanner import IntradayScanner
+    from src.strategies.intraday_strategy import IntradayStrategy
+    from src.utils.db_manager import DBManager, TradeStatusEnum
+    from src.llms.llm_client import LLMClient
+    from src.tradealerts import update_notify_json, send_notifications, parse_llm_analysis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - INTRADAY_BOT - %(levelname)s - %(message)s')
 
 class IntradayBot:
     def __init__(self, config_path='config/config.json'):
-        self.project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.project_root = os.path.abspath(os.path.join(script_dir, ".."))
         self.config_path = os.path.join(self.project_root, config_path)
         self.config = self._load_config()
 
@@ -34,7 +44,13 @@ class IntradayBot:
         self.version = self.intraday_config.get('strategy_version', '1.0.0')
 
         self.scanner = IntradayScanner(config_path=config_path)
-        from src.utils.alpaca_client import AlpacaClient
+
+        # Robust import for Alpaca
+        try:
+            from .utils.alpaca_client import AlpacaClient
+        except (ImportError, ValueError):
+            from src.utils.alpaca_client import AlpacaClient
+
         self.alpaca = AlpacaClient(config_path=config_path)
         self.strategy = IntradayStrategy(self.config)
         self.db = DBManager(config_path=config_path)
@@ -52,7 +68,7 @@ class IntradayBot:
             with open(self.config_path, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            logging.error(f"Error loading config: {e}")
+            logging.error(f"Error loading config in IntradayBot: {e}")
             return {}
 
     def _get_scan_interval(self):
@@ -99,7 +115,7 @@ class IntradayBot:
                             raw_analysis = self.llm_client.analyze_stock(llm_input)
                             ai_analysis = parse_llm_analysis(raw_analysis)
                         except Exception as e:
-                            logging.error(f"LLM Analysis failed: {e}")
+                            logging.error(f"LLM Analysis failed for {ticker}: {e}")
                     self.save_signal_to_json(ticker, signal, signal_id, ai_analysis)
                     fields = [{"name": "Ticker", "value": ticker, "inline": True}, {"name": "Entry", "value": f"{signal['entry']:.2f}", "inline": True}, {"name": "Stop-Loss", "value": f"{signal['stop_loss']:.2f}", "inline": True}, {"name": "Take-Profit", "value": f"{signal['take_profit']:.2f}", "inline": True}, {"name": "Risk/Reward", "value": f"{signal['risk_reward']}", "inline": True}]
                     cond_str = "\n".join([f"✅ {k.replace('_', ' ').title()}" for k, v in signal['conditions'].items() if v])
