@@ -3,7 +3,6 @@ import pandas as pd
 import sys
 import os
 
-
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
@@ -14,7 +13,9 @@ import json
 
 class IntradayScanner:
     def __init__(self, config_path='config/config.json'):
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+        # Robustly find project root
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
         self.config_path = os.path.join(project_root, config_path)
         self.config = self._load_config()
 
@@ -86,7 +87,8 @@ class IntradayScanner:
         """
         Identify active candidate tickers using the existing market_gainers screener logic.
         """
-        from src.screeners.market_gainers import fetch_screener_data
+        # Relative import for sibling module
+        from .market_gainers import fetch_screener_data
 
         logging.info("Scanning for candidate tickers using market screener...")
         df = fetch_screener_data(self.config)

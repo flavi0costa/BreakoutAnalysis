@@ -15,7 +15,7 @@ def run_command(command, env=None):
 def setup():
     print("--- 🚀 Intraday Bot Auto-Setup ---")
     if not os.path.exists("requirements.txt"):
-        print("❌ Error: requirements.txt not found in current directory.")
+        print("❌ Error: requirements.txt not found.")
         return False
     print("📦 Installing dependencies...")
     python_exe = sys.executable
@@ -29,12 +29,10 @@ def setup():
         if os.path.exists(example_path):
             print(f"📝 Creating {config_path} from example...")
             shutil.copy(example_path, config_path)
-            print(f"⚠️  Please edit {config_path} with your API keys before running again.")
+            print(f"⚠️  Please edit {config_path} with your API keys.")
         else:
-            print("❌ Error: Config files missing in config/ directory.")
+            print("❌ Error: Config files missing.")
             return False
-    else:
-        print("✅ config.json found.")
     return True
 
 def launch():
@@ -42,15 +40,12 @@ def launch():
     python_exe = sys.executable
     root_dir = os.getcwd()
 
-    # Set PYTHONPATH to project root so 'import src.xxx' works
+    # Critical: Set PYTHONPATH to project root and launch as MODULE
     env = os.environ.copy()
     env["PYTHONPATH"] = root_dir + os.pathsep + env.get("PYTHONPATH", "")
 
     try:
-        print(f"DEBUG: Project Root: {root_dir}")
-        print(f"DEBUG: PYTHONPATH: {env['PYTHONPATH']}")
-
-        # Use module flag -m to run correctly within package
+        # We MUST use -m to respect the package structure (src.intraday_bot)
         cmd = [python_exe, "-m", "src.intraday_bot"]
         print(f"DEBUG: Command: {' '.join(cmd)}")
         subprocess.run(cmd, env=env, check=True)
@@ -60,14 +55,15 @@ def launch():
         print(f"❌ Error launching bot: {e}")
 
 if __name__ == "__main__":
+    # Stabilization: Force script directory as CWD
     base_dir = os.path.dirname(os.path.abspath(__file__))
     if base_dir:
         os.chdir(base_dir)
+
     if setup():
         config_path = os.path.join("config", "config.json")
         with open(config_path, 'r') as f:
-            content = f.read()
-            if "YOUR_ALPACA_API_KEY" in content:
+            if "YOUR_ALPACA_API_KEY" in f.read():
                 print("\n🛑 SETUP REQUIRED: Please open config/config.json and enter your real API keys.")
                 input("\nPress Enter to close...")
                 sys.exit(0)

@@ -4,12 +4,22 @@ import sys
 import logging
 from typing import Dict, Optional, Type
 
+# Standard absolute imports for top-level packages (google, openai)
+# Relative imports for package members
 
-from src.llms.models.basemodel import BaseModel
-from src.llms.models.deepseek_r1 import DeepSeekR1Model
-from src.llms.models.llama3_2_vision import Llama3_2VisionModel
-from src.llms.models.gpt_unified import GPTUnified
-from src.llms.models.gemini import GeminiModel
+try:
+    from .models.basemodel import BaseModel
+    from .models.deepseek_r1 import DeepSeekR1Model
+    from .models.llama3_2_vision import Llama3_2VisionModel
+    from .models.gpt_unified import GPTUnified
+    from .models.gemini import GeminiModel
+except (ImportError, ValueError):
+    # Fallback for standalone execution
+    from src.llms.models.basemodel import BaseModel
+    from src.llms.models.deepseek_r1 import DeepSeekR1Model
+    from src.llms.models.llama3_2_vision import Llama3_2VisionModel
+    from src.llms.models.gpt_unified import GPTUnified
+    from src.llms.models.gemini import GeminiModel
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,17 +41,9 @@ MODEL_CLASS_MAP: Dict[str, Type[BaseModel]] = {
 class LLMClient:
     """
     Client layer for interacting with different LLM models for stock analysis.
-    Loads configuration, selects the appropriate model, constructs prompts,
-    and retrieves analysis results.
     """
 
     def __init__(self, config_path: str = 'config/config.json'):
-        """
-        Initializes the LLMClient.
-
-        Args:
-            config_path (str): Path to the main configuration file.
-        """
         self.config_path = config_path
         self.config: Optional[Dict] = None
         self.llm_config: Optional[Dict] = None
@@ -55,127 +57,62 @@ class LLMClient:
             logging.info("LLMClient initialized successfully.")
         except Exception as e:
             logging.error(f"Failed to initialize LLMClient: {e}", exc_info=True)
-            # Ensure partial initialization doesn't cause issues
             self.model = None
             self.prompt_template = None
 
     def _load_config(self):
-        """Loads the main configuration file."""
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
             self.llm_config = self.config.get('llms')
             if not self.llm_config:
                 raise ValueError("LLM configuration ('llms') missing in config file.")
-            logging.info(f"Loaded configuration from {self.config_path}")
-        except FileNotFoundError:
-            logging.error(f"Configuration file not found at {self.config_path}")
-            raise
-        except json.JSONDecodeError:
-            logging.error(f"Error decoding JSON from {self.config_path}")
-            raise
         except Exception as e:
             logging.error(f"Error loading configuration: {e}")
             raise
 
     def _initialize_model(self):
-        """Initializes the specific LLM model based on the configuration."""
-        if not self.llm_config:
-            raise ValueError("LLM configuration not loaded.")
-
-        current_model_name = self.llm_config.get('current_model', 'gpt-4o-mini')  # Default to gpt-4o-mini if not specified
-        if not current_model_name:
-            raise ValueError("'current_model' not specified in LLM configuration.")
-
+        current_model_name = self.llm_config.get('current_model', 'gpt-4o-mini')
         models_list = self.llm_config.get('models', [])
         model_config = next((m for m in models_list if m.get('name') == current_model_name), None)
 
         if not model_config:
-            raise ValueError(f"Configuration for model '{current_model_name}' not found in 'models' list.")
+            raise ValueError(f"Configuration for model '{current_model_name}' not found.")
 
         model_class = MODEL_CLASS_MAP.get(current_model_name)
         if not model_class:
-            raise ValueError(f"No implementation class found for model '{current_model_name}'. Check MODEL_CLASS_MAP.")
+            raise ValueError(f"No implementation class found for '{current_model_name}'.")
 
-        try:
-            self.model = model_class(model_config)
-            logging.info(f"Instantiated model: {current_model_name}")
-        except Exception as e:
-            logging.error(f"Failed to instantiate model '{current_model_name}': {e}")
-            raise
+        self.model = model_class(model_config)
+        logging.info(f"Instantiated model: {current_model_name}")
 
     def _load_prompt(self):
-        """Loads the prompt template file."""
-        if not self.llm_config or not self.model:
-             raise ValueError("LLM configuration or model not initialized before loading prompt.")
-
         prompt_file_name = self.llm_config.get('prompt_file')
-        if not prompt_file_name:
-            raise ValueError("'prompt_file' not specified in LLM configuration.")
 
-        # Assume prompt file is relative to the 'src/llms' directory or project root
-        # Let's try relative to the config file's directory first, then project root
-        config_dir = os.path.dirname(self.config_path) # e.g., 'config'
-        project_root = os.path.dirname(config_dir) # e.g., '.'
-        llms_dir = os.path.join(project_root, 'src', 'llms') # e.g., './src/llms'
+        # Robust path finding for prompt file
+        script_dir = os.path.dirname(os.path.abspath(__file__)) # src/llms
+        project_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
 
-        # Construct potential paths - adjust if prompt location is different
         potential_paths = [
-            os.path.join(llms_dir, prompt_file_name),
-            os.path.join(project_root, prompt_file_name), # If prompt is at root
+            os.path.join(script_dir, prompt_file_name),
+            os.path.join(project_root, "src", "llms", prompt_file_name),
+            os.path.join(project_root, prompt_file_name),
         ]
 
-        prompt_file_path = None
-        for path in potential_paths:
-            if os.path.exists(path):
-                prompt_file_path = path
-                break
-
+        prompt_file_path = next((p for p in potential_paths if os.path.exists(p)), None)
         if not prompt_file_path:
-             raise FileNotFoundError(f"Prompt file '{prompt_file_name}' not found in expected locations: {potential_paths}")
+             raise FileNotFoundError(f"Prompt file '{prompt_file_name}' not found.")
 
-        try:
-            self.prompt_template = self.model.load_prompt_template(prompt_file_path)
-            logging.info(f"Loaded prompt template from {prompt_file_path}")
-        except Exception as e:
-            logging.error(f"Failed to load prompt template from {prompt_file_path}: {e}")
-            raise # Re-raise after logging
+        self.prompt_template = self.model.load_prompt_template(prompt_file_path)
 
     def analyze_stock(self, stock_data: dict) -> Optional[str]:
-        """
-        Analyzes the given stock data using the configured LLM.
-
-        Args:
-            stock_data (dict): A dictionary containing the data for a single stock.
-                              May include 'chart_image_path' for vision models.
-
-        Returns:
-            Optional[str]: The analysis result string from the LLM, or None if an error occurs.
-        """
         if not self.model or not self.prompt_template:
-            logging.error("LLMClient is not properly initialized. Cannot analyze stock.")
             return None
 
         try:
-            logging.info(f"Constructing prompt for stock: {stock_data.get('Ticker', 'N/A')}")
             final_prompt = self.model.construct_prompt(self.prompt_template, stock_data)
-
-            # Get chart image path if provided
             chart_image_path = stock_data.get('chart_image_path')
-            
-            logging.info(f"Requesting analysis from model: {self.model.__class__.__name__}")
-            analysis_result = self.model.generate_analysis(final_prompt, chart_image_path)
-            logging.info(f"Received analysis for stock: {stock_data.get('Ticker', 'N/A')}")
-            return analysis_result
-
+            return self.model.generate_analysis(final_prompt, chart_image_path)
         except Exception as e:
-            logging.error(f"Error during stock analysis for {stock_data.get('Ticker', 'N/A')}: {e}", exc_info=True)
-            return None # Return None on error
-
-# Note: This class is intended to be imported and used by other modules
-# (e.g., tradealerts.py). To test it independently, you would typically
-# create a separate test script (e.g., in the 'testscripts' directory)
-# that imports LLMClient, or run it as a module from the project root:
-# python -m src.llms.llm_client
-# (You would need to add the `if __name__ == '__main__':` block back temporarily
-# for the `-m` flag execution to run the test code).
+            logging.error(f"Error during stock analysis: {e}")
+            return None

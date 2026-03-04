@@ -6,11 +6,12 @@ import json
 from datetime import datetime, timedelta
 import pytz
 
-from src.screeners.intraday_scanner import IntradayScanner
-from src.strategies.intraday_strategy import IntradayStrategy
-from src.utils.db_manager import DBManager, TradeStatusEnum
-from src.llms.llm_client import LLMClient
-from src.tradealerts import update_notify_json, send_notifications, parse_llm_analysis
+# Use relative imports for package-internal modules
+from .screeners.intraday_scanner import IntradayScanner
+from .strategies.intraday_strategy import IntradayStrategy
+from .utils.db_manager import DBManager, TradeStatusEnum
+from .llms.llm_client import LLMClient
+from .tradealerts import update_notify_json, send_notifications, parse_llm_analysis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - INTRADAY_BOT - %(levelname)s - %(message)s')
@@ -30,7 +31,8 @@ class IntradayBot:
         self.discord_webhook = self.intraday_config.get('discord', {}).get('webhook_url')
 
         self.scanner = IntradayScanner(config_path=config_path)
-        from src.utils.alpaca_client import AlpacaClient
+        # Dynamic import for Alpaca to avoid circular dependencies if any
+        from .utils.alpaca_client import AlpacaClient
         self.alpaca = AlpacaClient(config_path=config_path)
         self.strategy = IntradayStrategy(self.config)
         self.db = DBManager(config_path=config_path)
