@@ -67,6 +67,9 @@ def load_config(config_path='config/config.json'):
         webhook_url = discord_config.get('webhook_url', '')
         report_webhook_url = discord_config.get('webhook_url_market_report', '')
         
+        # Add intraday webhook support
+        intraday_webhook_url = config.get('intraday', {}).get('discord', {}).get('webhook_url', '')
+
         if not webhook_url or webhook_url == "YOUR_WEBHOOK_URL":
             print("Warning: Discord webhook URL not configured or is set to default value")
             print("Please update the webhook_url in config/config.json")
@@ -75,7 +78,11 @@ def load_config(config_path='config/config.json'):
             print("Please update the webhook_url_market_report in config/config.json")
         
         if not webhook_url or not report_webhook_url:
-            return None
+            # We still return if we have at least one valid webhook for other purposes
+            pass
+
+        if intraday_webhook_url:
+            discord_config['webhook_url_intraday'] = intraday_webhook_url
         
         return discord_config
     except Exception as e:
@@ -337,10 +344,15 @@ def send_discord_notification(discord_config, stock_notifications):
     for stock_data in stock_notifications:
         # Choose appropriate webhook based on notification type
         if 'title' in stock_data and 'content' in stock_data and 'ticker' not in stock_data:
-            # Market briefing
-            webhook_url = discord_config.get('webhook_url_market_report')
+            # Check for Intraday or Market Briefing
+            title = stock_data.get('title', '')
+            if "INTRADAY" in title or "Trade" in title or "Stop-Loss" in title or "Take-Profit" in title:
+                webhook_url = discord_config.get('webhook_url_intraday') or discord_config.get('webhook_url')
+            else:
+                webhook_url = discord_config.get('webhook_url_market_report')
         else:
             webhook_url = discord_config.get('webhook_url')
+
         success = send_stock_embed(webhook_url, stock_data)
         if not success:
             all_sent_successfully = False

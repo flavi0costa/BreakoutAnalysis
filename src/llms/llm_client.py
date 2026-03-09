@@ -21,8 +21,8 @@ MODEL_CLASS_MAP: Dict[str, Type[BaseModel]] = {
     "llama-3.2-vision": Llama3_2VisionModel,
     "gpt-4o": GPTUnified, # Mapping for gpt-4o
     "gpt-4o-mini": GPTUnified, # Add mapping for gpt-4o-mini
-    "gpt-4.1-mini": GPTUnified,  
-    "o4-mini": GPTUnified,  
+    "gpt-4.1-mini": GPTUnified,
+    "o4-mini": GPTUnified,
     "gemini-2.0": GeminiModel,
     "gemini-pro-vision": GeminiModel,
     "gemini-2.5-flash": GeminiModel,
@@ -163,7 +163,7 @@ class LLMClient:
 
             # Get chart image path if provided
             chart_image_path = stock_data.get('chart_image_path')
-            
+
             logging.info(f"Requesting analysis from model: {self.model.__class__.__name__}")
             analysis_result = self.model.generate_analysis(final_prompt, chart_image_path)
             logging.info(f"Received analysis for stock: {stock_data.get('Ticker', 'N/A')}")
